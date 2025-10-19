@@ -11,6 +11,7 @@ time: 17999.953 millis
 
 ### O_DIRECT 
 
+[O_DIRECT](https://yarchive.net/comp/linux/o_direct.html)
 O_DIRECT isn't doing any read-ahead.
 
 For O_DIRECT to be a win, you need to make it asynchronous.
