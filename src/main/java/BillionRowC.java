@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit;
 
 public class BillionRowC {
 
-    public static final int PAGE_SIZE = 4096;
+    public static final int PAGE_SIZE = 1024*64;
 
     static void main(String[] args) throws IOException {
 
@@ -27,7 +27,7 @@ public class BillionRowC {
                 totalRead += read;
                 if (read > 7) {
                     buffer.flip(); //flip to do the read from start
-                    chkSum += buffer.getLong();
+                    chkSum += (buffer.getInt() & ~(1L << 31));
                 }
             } while(true);
             System.out.println("sum= " + chkSum + "; read total MBytes " + totalRead/1000000.0 );
