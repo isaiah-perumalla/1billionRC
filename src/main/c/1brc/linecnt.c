@@ -10,12 +10,10 @@
 #include <string.h>
 #include <fcntl.h>
 
-#define BLK_SIZE (1024 * 64)
+#define BLK_SIZE (1024 * 256) // 256k block seems optimal
 #define NR_BUFS 64
 #define BR_MASK (NR_BUFS-1)
-//pre-allocate buffers
-char buffers[NR_BUFS][BLK_SIZE] = {0};
-
+#define IS_POW2(x) (0 == ((x) & ((x) - 1)))
 const int BUFF_GRP_ID = 1337;
 
 
@@ -81,7 +79,6 @@ static  __u16 next_read_bid(struct blk_read_stat * blk_read_stat) {
     const __u64 blk_nr = blk_read_stat->next_offset / BLK_SIZE;
     const __u16 idx = blk_nr & BR_MASK;
     const __u16 bid = blk_read_stat->ready_buffers[idx];
-
     return bid;
 }
 
@@ -108,6 +105,7 @@ static __u64 blk_stat_next_blk_size(struct blk_read_stat * blk_read_stat) {
 }
 
 static bool check_cqe(int peek_res, struct io_uring_cqe * cqe) {
+
     if (peek_res == 0) {
         if (!(cqe->flags & IORING_CQE_F_BUFFER)) {
             fprintf(stderr, "no buffer selected\n");
@@ -120,7 +118,7 @@ static bool check_cqe(int peek_res, struct io_uring_cqe * cqe) {
             if (cqe->res == 0) {
                 fprintf(stderr, "cqe res zero, offset=%lld \n", cqe->user_data);
             }
-            fprintf(stderr, "cqe res %d\n", cqe->res);
+            fprintf(stderr,"Failed cqe result %d \n", cqe->res);
             exit(1);
         }
         return true;
@@ -135,13 +133,16 @@ static bool check_cqe(int peek_res, struct io_uring_cqe * cqe) {
 }
 
 int main(int argc, char *argv[]) {
+
+    //ensure NR_BUFF is pow of 2 or break all assumptions in rest of code
+    assert(IS_POW2(NR_BUFS));
     if (argc != 2) {
         printf("Usage: %s <file>\n", argv[0]);
         exit(1);
     }
 
     struct io_uring ring;
-    const int fd = open(argv[1], O_RDONLY );
+    const int fd = open(argv[1], O_RDONLY | O_DIRECT);
     if (fd < 0) {
         perror("open");
         exit(1);
@@ -155,6 +156,10 @@ int main(int argc, char *argv[]) {
         perror("fstat");
         exit(1);
     }
+    //pre-allocate buffers
+    //with page alignment
+    char* buffers = aligned_alloc(4096, BLK_SIZE * NR_BUFS );
+
     assert(finfo.st_size >= 0);
     const __u64 file_size = finfo.st_size;
     //setup io ring
@@ -188,7 +193,7 @@ int main(int argc, char *argv[]) {
         const __u64 remaining_bytes = (file_size - submitted_bytes);
         const __u64 nbytes = remaining_bytes >= BLK_SIZE ? BLK_SIZE : remaining_bytes;
         const __u64 file_offset = n * BLK_SIZE;
-        prep_read_blk(&ring, fd, nbytes, file_offset);
+        prep_read_blk(&ring, fd, BLK_SIZE, file_offset); //issue BLK_SIZE worth of reads but app know to consume nbytes
         submitted_bytes += nbytes;
     }
     const int submit_result = io_uring_submit(&ring);
@@ -220,7 +225,7 @@ int main(int argc, char *argv[]) {
         }
 
         //data matches expected offset
-        char *data = buffers[next_bid -1];
+        const char *data = buffers + (BLK_SIZE * (next_bid -1));
         //always BLK_SIZE of data read unless it is last block
         const __uint64_t bytes_read = (processed_bytes + BLK_SIZE) <= file_size ?  BLK_SIZE : (file_size - processed_bytes);
 
@@ -234,7 +239,9 @@ int main(int argc, char *argv[]) {
         //advance both buffer ring and cqe ring
         io_uring_buf_ring_advance(buf_ring_ptr, 1);// release buffer back to kernel
         const __u64 nbytes = blk_stat_next_blk_size(&blk_read_stat);
-        if (nbytes > 0 && prep_read_blk(&ring, fd, nbytes, blk_read_stat.submitted_offset)) {
+        //always submit blk_size reads even if it larger than file size, n_bytes keeps track of how much is read
+        // O_DIRECT reads need to be issues at multiple BLK_SIZE
+        if (nbytes > 0 && prep_read_blk(&ring, fd, BLK_SIZE, blk_read_stat.submitted_offset)) {
             result = io_uring_submit(&ring);
             assert(result == 1);
             blk_stat_advance_submitted(&blk_read_stat, nbytes); // advance
