@@ -1,3 +1,6 @@
 [submodule "liburing"]
 	path = liburing
 	url = https://github.com/axboe/liburing.git
+[submodule "FlameGraph"]
+	path = FlameGraph
+	url = https://github.com/brendangregg/FlameGraph.git

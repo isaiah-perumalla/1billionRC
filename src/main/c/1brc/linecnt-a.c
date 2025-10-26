@@ -133,8 +133,25 @@ static bool check_cqe(int peek_res, struct io_uring_cqe * cqe) {
 }
 
 static __u64 count_new_lines(const char *data, const __uint64_t size) {
-    __u64 count = 0;
-    for (__u64 i = 0; i < size; i++) {
+    assert('\n'== 0x0A);
+    const __u64 new_line_mask = 0x0A0A0A0A0A0A0A0A;
+    __u8 remainder = size & 7;
+    __uint64_t count = 0;
+    __uint64_t i;
+    const __uint64_t length = (size - remainder);
+    assert((length & 7) == 0); // multiple of 8
+    for ( i = 0; i < length; i+=8) {
+        const int lines = (*(data + i) == '\n') +
+                    (*(data + i + 1) == '\n') +
+                    (*(data + i + 2) == '\n') +
+                    (*(data + i + 3) == '\n') +
+                    (*(data + i + 4) == '\n') +
+                    (*(data + i + 5) == '\n') +
+                    (*(data + i + 6) == '\n') +
+                    (*(data + i + 7) == '\n');
+        count += lines;
+    }
+    while (remainder-- > 0) {
         if (data[i++] == '\n') {
             count += 1;
         }
