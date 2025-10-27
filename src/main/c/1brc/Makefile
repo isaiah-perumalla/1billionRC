@@ -1,10 +1,11 @@
 CC=gcc
 LIBURING_BUILD=../../../../local-build
-CFLAGS=-O2 -Wall -Wextra -g -I $(LIBURING_BUILD)/include
+DEBUG_FLAGS=-g -fno-omit-frame-pointer
+CFLAGS=-O2 -Wall -g -Wextra -I $(LIBURING_BUILD)/include
 ODIR=build
 LIBS=$(LIBURING_BUILD)/lib/liburing.a
 
-all: linecnt read_bench baseline_linecnt
+all: linecnt linecnt-a read_bench baseline_linecnt
 
 read_bench: read_bench.o
 	$(CC)  $(CFLAGS) -o $@  read_bench.o
@@ -14,9 +15,15 @@ baseline_linecnt: baseline_linecnt.o
 
 
 linecnt: linecnt.o
-	$(CC)  $(CFLAGS)  -o $@ linecnt.o  $(LIBS)
+	$(CC) $(CFLAGS)  -o $@ linecnt.o  $(LIBS)
+
+linecnt-a: linecnt-a.o
+	$(CC) $(CFLAGS)  -o $@ linecnt-a.o  $(LIBS)
+
+linecnt-b: linecnt-b.o
+	$(CC) $(CFLAGS)  -o $@ linecnt-b.o  $(LIBS)
 
 .PHONY: clean
 
 clean:
-	rm -f *.o read_bench baseline_linecnt linecnt
+	rm -f *.o read_bench baseline_linecnt linecnt linecnt-a linecnt-b

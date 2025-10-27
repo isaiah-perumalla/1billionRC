@@ -132,22 +132,33 @@ static bool check_cqe(int peek_res, struct io_uring_cqe * cqe) {
     exit(1);
 }
 
+ inline __u8 count_lf(const __u64 bytes) {
+    assert('\n'== 0x0A);
+    const __u64 new_line_mask = 0x0A0A0A0A0A0A0A0A;
+    __u64 tmp = (bytes ^ new_line_mask); //zero bytes at new line position
+    tmp = (tmp & 0x7f7f7f7f7f7f7f7f) + 0x7f7f7f7f7f7f7f7f; //every 0 byte and 0x80 will have 7F
+    //need to replace 0 byte with 0x80 and all other bytes with 0
+    tmp = ~(tmp | bytes |  0x7f7f7f7f7f7f7f7f);
+    tmp = (tmp >> 7); //every zero byte will be a 0x01
+    return tmp % 0xFF; //count number of 1 bytes in work
+}
+
 static __u64 count_new_lines(const char *data, const __uint64_t size) {
-    __u8 remainder = size & 7;
+    const __u8 chunk = 64;
+    __u8 remainder = size & (chunk - 1);
     __uint64_t count = 0;
-    __uint64_t i;
     const __uint64_t length = (size - remainder);
-    assert((length & 7) == 0); // multiple of 8
-    for ( i = 0; i < length; i+=8) {
-        const int lines = (*(data + i) == '\n') +
-                    (*(data + i + 1) == '\n') +
-                    (*(data + i + 2) == '\n') +
-                    (*(data + i + 3) == '\n') +
-                    (*(data + i + 4) == '\n') +
-                    (*(data + i + 5) == '\n') +
-                    (*(data + i + 6) == '\n') +
-                    (*(data + i + 7) == '\n');
-        count += lines;
+    assert((length & (chunk -1)) == 0); // multiple of chuck
+    __uint64_t i;
+    for ( i = 0; i < length; i+=chunk) {
+        count += count_lf(*(__u64 *) (data + i));
+        count += count_lf(*(__u64 *) (data + i + 8));
+        count += count_lf(*(__u64 *) (data + i + 16));
+        count += count_lf(*(__u64 *) (data + i + 24));
+        count += count_lf(*(__u64 *) (data + i + 32));
+        count += count_lf(*(__u64 *) (data + i + 40));
+        count += count_lf(*(__u64 *) (data + i + 48));
+        count += count_lf(*(__u64 *) (data + i + 56));
     }
     while (remainder-- > 0) {
         if (data[i++] == '\n') {
