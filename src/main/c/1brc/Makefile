@@ -1,7 +1,7 @@
 CC=gcc
 LIBURING_BUILD=../../../../local-build
 DEBUG_FLAGS=-g -fno-omit-frame-pointer
-CFLAGS=-O2 -Wall -g -Wextra -I $(LIBURING_BUILD)/include
+CFLAGS=-O2 -Wall -g -Wextra -I $(LIBURING_BUILD)/include -Iinclude
 ODIR=build
 LIBS=$(LIBURING_BUILD)/lib/liburing.a
 
@@ -14,14 +14,15 @@ baseline_linecnt: baseline_linecnt.o
 	$(CC) $(CFLAGS) -o $@ baseline_linecnt.o
 
 
-linecnt: linecnt.o
-	$(CC) $(CFLAGS)  -o $@ linecnt.o  $(LIBS)
 
-linecnt-a: linecnt-a.o
-	$(CC) $(CFLAGS)  -o $@ linecnt-a.o  $(LIBS)
+linecnt: asyncio.o linecnt.o
+	$(CC) $(CFLAGS)  -o $@ asyncio.o linecnt.o  $(LIBS)
 
-linecnt-b: linecnt-b.o
-	$(CC) $(CFLAGS)  -o $@ linecnt-b.o  $(LIBS)
+linecnt-a: asyncio.o linecnt-a.o
+	$(CC) $(CFLAGS)  -o $@ asyncio.o linecnt-a.o  $(LIBS)
+
+linecnt-b: asyncio.o linecnt-b.o
+	$(CC) $(CFLAGS)  -o $@ asyncio.o linecnt-b.o  $(LIBS)
 
 .PHONY: clean
 
