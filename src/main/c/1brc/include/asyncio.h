@@ -25,11 +25,9 @@ struct async_reader_t {
 /**
  * create a new async reader
  * @param blk_size
- * @param nbufs
- * @param buffers
  * @return
  */
-struct async_reader_t async_reader_new(__u32 blk_size, __u16 nbufs);
+struct async_reader_t async_reader_new(__u32 blk_size);
 
 // init reading of fd from offset to size
 int async_reader_init(struct async_reader_t *reader, int fd, __uint64_t offset, __uint64_t size);

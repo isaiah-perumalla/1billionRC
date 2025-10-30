@@ -21,10 +21,10 @@ $(BIN)/%_gcc: $(SRC)/%.c $(BIN)/asyncio_gcc.o
 $(BIN)/%_clang: $(SRC)/%.c $(BIN)/asyncio_clang.o
 	$(CC) $<   -o $@ $(BIN)/asyncio_clang.o $(CFLAGS) $(RELEASE_FLAGS) $(LIBS)
 
-$(BIN)/asyncio_gcc.o:
+$(BIN)/asyncio_gcc.o: $(BIN)
 	$(CC)  -c $(CFLAGS) asyncio.c -o $@
 
-$(BIN)/asyncio_clang.o:
+$(BIN)/asyncio_clang.o: $(BIN)
 	$(CC)  -c $(CFLAGS) asyncio.c -o $@
 
 
