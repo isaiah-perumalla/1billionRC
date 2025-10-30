@@ -18,34 +18,6 @@ const int BUFF_GRP_ID = 1337;
 
 __uint64_t total;
 
-static __u64 count_new_lines(const char *data, const __uint64_t size) {
-    __u8 remainder = size & 7;
-    __uint64_t count = 0;
-    __uint64_t i;
-    const __uint64_t length = (size - remainder);
-    assert((length & 7) == 0); // multiple of 8
-    for ( i = 0; i < length; i+=8) {
-        const int lines = (*(data + i) == '\n') +
-                    (*(data + i + 1) == '\n') +
-                    (*(data + i + 2) == '\n') +
-                    (*(data + i + 3) == '\n') +
-                    (*(data + i + 4) == '\n') +
-                    (*(data + i + 5) == '\n') +
-                    (*(data + i + 6) == '\n') +
-                    (*(data + i + 7) == '\n');
-        count += lines;
-    }
-    while (remainder-- > 0) {
-        if (data[i++] == '\n') {
-            count += 1;
-        }
-    }
-    return count;
-}
-
-
-
-
 int main(int argc, char *argv[]) {
 
     if (argc != 2) {
@@ -81,7 +53,6 @@ int main(int argc, char *argv[]) {
 
 
     __uint64_t processed_bytes = 0;
-    __uint64_t lines = 0;
 
     while (processed_bytes < file_size) {
 
@@ -97,15 +68,18 @@ int main(int argc, char *argv[]) {
             continue; //blk not ready
         }
         if (processed_bytes + BLK_SIZE <= file_size) {
-            assert(bytes_read == BLK_SIZE);
+            assert(bytes_read == BLK_SIZE + 1);
         }
-        lines += count_new_lines(data, bytes_read);
+        if (bytes_read > 7) {
+            const __u64* val = (__u64*)data;
+            total += *val;
+        }
 
         processed_bytes += bytes_read;
         async_reader_advance_read(&reader, bytes_read);
 
     }
-    printf("lines %ld\n", lines);
+    printf("total=%ld\n",total);
     printf("bytes read  %ld\n", processed_bytes);
     clock_gettime(CLOCK_MONOTONIC, &end);
 

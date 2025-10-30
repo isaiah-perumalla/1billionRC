@@ -28,12 +28,11 @@ static bool prep_read_blk(struct io_uring* ring_ptr, const int fd, const unsigne
 }
 
 
-struct async_reader_t async_reader_new(__u32 blk_size, __u16 nbufs) {
-    assert(IS_POW2(nbufs)); //pow2
+struct async_reader_t async_reader_new(__u32 blk_size) {
     assert(IS_POW2(blk_size));//pow2
     //pre-allocate buffers
     //with page alignment
-    char* buffers = aligned_alloc(4096, blk_size * nbufs);
+    char* buffers = aligned_alloc(4096, blk_size * NR_BUFF);
 
     struct async_reader_t t;
     t.buffers = buffers;
@@ -43,14 +42,14 @@ struct async_reader_t async_reader_new(__u32 blk_size, __u16 nbufs) {
     t.next_offset = 0;
     t.ready_count = 0;
     t.fd = -1; //not init
-    const int ret = io_uring_queue_init(nbufs, &t.ring, 0);
+    const int ret = io_uring_queue_init(NR_BUFF, &t.ring, 0);
     if (ret) {
         fprintf(stderr, "io_uring_queue_init check kernel version > 5.19");
         exit(1);
     }
     //setup buffer ring
     int result;
-    t.buf_ring_ptr = io_uring_setup_buf_ring(&t.ring, nbufs, BUFF_GRP_ID, 0, &result);
+    t.buf_ring_ptr = io_uring_setup_buf_ring(&t.ring, NR_BUFF, BUFF_GRP_ID, 0, &result);
     if (t.buf_ring_ptr == NULL) {
         fprintf(stderr,"io_uring_setup_buf_ring, check kernel version > 5.19");
         exit(1);
@@ -59,11 +58,11 @@ struct async_reader_t async_reader_new(__u32 blk_size, __u16 nbufs) {
     //register the memory into the buffer pool
     //kernel can reuse this avoid copies to userspace
     //bid -> buffer-id, bid 0 is not used
-    for (int i = 0; i < nbufs; i++) {
-        io_uring_buf_ring_add(t.buf_ring_ptr, ptr, blk_size, i+1, nbufs-1, i);
+    for (int i = 0; i < NR_BUFF; i++) {
+        io_uring_buf_ring_add(t.buf_ring_ptr, ptr, blk_size, i+1, NR_BUFF-1, i);
         ptr += blk_size;
     }
-    io_uring_buf_ring_advance(t.buf_ring_ptr, nbufs);
+    io_uring_buf_ring_advance(t.buf_ring_ptr, NR_BUFF);
     return t;
 }
 

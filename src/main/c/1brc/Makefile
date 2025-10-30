@@ -2,13 +2,14 @@ CC=gcc
 CCC=clang
 LIBURING_BUILD=../../../../local-build
 DEBUG_FLAGS=-g -fno-omit-frame-pointer
-CFLAGS=-O2 -Wall -g -Wextra -I $(LIBURING_BUILD)/include -Iinclude
+RELEASE_FLAGS=-DNDEBUG
+CFLAGS=-O3 -Wall -g -Wextra -I $(LIBURING_BUILD)/include -Iinclude
 ODIR=build
 LIBS=$(LIBURING_BUILD)/lib/liburing.a
 BIN=bin
 SRC=.
 DEPS=$(BIN)/asyncio_gcc.o
-all: $(BIN)/linecnt_gcc $(BIN)/linecnt_clang $(BIN)/linecnt-a_gcc $(BIN)/linecnt-a_clang $(BIN)/linecnt-b_gcc $(BIN)/linecnt-b_clang $(BIN)/baseline_linecnt_gcc $(BIN)/baseline_linecnt_clang
+all: $(BIN)/linecnt_gcc $(BIN)/linecnt_clang $(BIN)/linecnt-a_gcc $(BIN)/linecnt-a_clang $(BIN)/linecnt-b_gcc $(BIN)/linecnt-b_clang $(BIN)/baseline_linecnt_gcc $(BIN)/baseline_linecnt_clang $(BIN)/baseline_read_gcc $(BIN)/baseline_read_clang
 
 $(BIN):
 	mkdir -p $(BIN)

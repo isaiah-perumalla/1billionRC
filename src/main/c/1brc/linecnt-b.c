@@ -7,13 +7,10 @@
 #include <stdlib.h>
 #include <liburing.h>
 #include <assert.h>
-#include <string.h>
 #include <fcntl.h>
 #include "include/asyncio.h"
 
 #define BLK_SIZE (1024 * 256) // 256k block seems optimal
-#define NR_BUFS 64
-#define BR_MASK (NR_BUFS-1)
 #define IS_POW2(x) (0 == ((x) & ((x) - 1)))
 const int BUFF_GRP_ID = 1337;
 
@@ -59,8 +56,6 @@ static __u64 count_new_lines(const char *data, const __uint64_t size) {
 
 int main(int argc, char *argv[]) {
 
-    //ensure NR_BUFF is pow of 2 or break all assumptions in rest of code
-    assert(IS_POW2(NR_BUFS));
     if (argc != 2) {
         printf("Usage: %s <file>\n", argv[0]);
         exit(1);
@@ -79,7 +74,7 @@ int main(int argc, char *argv[]) {
         perror("fstat");
         exit(1);
     }
-    struct async_reader_t reader = async_reader_new( BLK_SIZE, NR_BUFS);
+    struct async_reader_t reader = async_reader_new( BLK_SIZE);
 
     assert(finfo.st_size >= 0);
     const __u64 file_size = finfo.st_size;
