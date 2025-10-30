@@ -66,13 +66,13 @@ int main(int argc, char *argv[]) {
         perror("fstat");
         exit(1);
     }
-    struct async_reader_t reader = async_reader_new( BLK_SIZE);
+    struct async_reader_t* reader = async_reader_new( BLK_SIZE);
 
     assert(finfo.st_size >= 0);
     const __u64 file_size = finfo.st_size;
     //setup io ring
 
-    int err = async_reader_init(&reader, fd, 0, file_size);
+    int err = async_reader_init(reader, fd, 0, file_size);
     if (err) {
         fprintf(stderr,"async read init failed for fd=%d", fd);
         exit(1);
@@ -85,14 +85,14 @@ int main(int argc, char *argv[]) {
 
     while (processed_bytes < file_size) {
 
-        int poll = async_reader_poll(&reader);
+        int poll = async_reader_poll(reader);
 
         if (poll < 0) { //fatal error
             fprintf(stderr, "io_uring_peek_cqe returned %d\n", poll);
             exit(1);
         }
         __uint64_t bytes_read = 0;
-        const char *data = async_reader_next_ready(&reader, &bytes_read);
+        const char *data = async_reader_next_ready(reader, &bytes_read);
         if (bytes_read == 0) {
             continue; //blk not ready
         }
@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
         lines += count_new_lines(data, bytes_read);
 
         processed_bytes += bytes_read;
-        async_reader_advance_read(&reader, bytes_read);
+        async_reader_advance_read(reader, bytes_read);
 
     }
     printf("lines %ld\n", lines);

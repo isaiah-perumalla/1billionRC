@@ -12,7 +12,26 @@
 #define NR_BUFF 64
 
 #define IS_POW2(x) (0 == ((x) & ((x) - 1)))
+
+#define NEW_INSTANCE(t)  (t*)malloc(sizeof(t))
+#define FREE(p) free((p)), (p) = NULL
+
 static const int BUFF_GRP_ID = 1337;
+
+struct async_reader_t {
+    struct io_uring ring;
+    struct io_uring_buf_ring *buf_ring_ptr;
+    char * buffers;
+    __u32 blk_size;
+    __u64 next_offset;
+    __u64 submitted_offset;
+    __u64 length;
+    //track which buffers are ready to be read
+    __u16 ready_buffers[64];
+    __u8 ready_count;
+    int fd;
+};
+
 
 static bool prep_read_blk(struct io_uring* ring_ptr, const int fd, const unsigned nbytes, const __u64 file_offset) {
     assert(nbytes > 0);
@@ -28,29 +47,36 @@ static bool prep_read_blk(struct io_uring* ring_ptr, const int fd, const unsigne
 }
 
 
-struct async_reader_t async_reader_new(__u32 blk_size) {
+int async_reader_free(struct async_reader_t *reader) {
+    io_uring_unregister_buf_ring(&reader->ring, BUFF_GRP_ID);
+    io_uring_queue_exit(&reader->ring);
+    FREE(reader->buffers);
+    FREE(reader);
+    return 0;
+}
+
+struct async_reader_t* async_reader_new(__u32 blk_size) {
     assert(IS_POW2(blk_size));//pow2
     //pre-allocate buffers
     //with page alignment
     char* buffers = aligned_alloc(4096, blk_size * NR_BUFF);
-
-    struct async_reader_t t;
-    t.buffers = buffers;
-    t.blk_size = blk_size;
-    t.submitted_offset = 0;
-    t.length = 0;
-    t.next_offset = 0;
-    t.ready_count = 0;
-    t.fd = -1; //not init
-    const int ret = io_uring_queue_init(NR_BUFF, &t.ring, 0);
+    struct async_reader_t* t = NEW_INSTANCE(struct async_reader_t);
+    t->buffers = buffers;
+    t->blk_size = blk_size;
+    t->submitted_offset = 0;
+    t->length = 0;
+    t->next_offset = 0;
+    t->ready_count = 0;
+    t->fd = -1; //not init
+    const int ret = io_uring_queue_init(NR_BUFF, &t->ring, 0);
     if (ret) {
         fprintf(stderr, "io_uring_queue_init check kernel version > 5.19");
         exit(1);
     }
     //setup buffer ring
     int result;
-    t.buf_ring_ptr = io_uring_setup_buf_ring(&t.ring, NR_BUFF, BUFF_GRP_ID, 0, &result);
-    if (t.buf_ring_ptr == NULL) {
+    t->buf_ring_ptr = io_uring_setup_buf_ring(&t->ring, NR_BUFF, BUFF_GRP_ID, 0, &result);
+    if (t->buf_ring_ptr == NULL) {
         fprintf(stderr,"io_uring_setup_buf_ring, check kernel version > 5.19");
         exit(1);
     }
@@ -59,16 +85,16 @@ struct async_reader_t async_reader_new(__u32 blk_size) {
     //kernel can reuse this avoid copies to userspace
     //bid -> buffer-id, bid 0 is not used
     for (int i = 0; i < NR_BUFF; i++) {
-        io_uring_buf_ring_add(t.buf_ring_ptr, ptr, blk_size, i+1, NR_BUFF-1, i);
+        io_uring_buf_ring_add(t->buf_ring_ptr, ptr, blk_size, i+1, NR_BUFF-1, i);
         ptr += blk_size;
     }
-    io_uring_buf_ring_advance(t.buf_ring_ptr, NR_BUFF);
+    io_uring_buf_ring_advance(t->buf_ring_ptr, NR_BUFF);
     return t;
 }
 
 // init reading of fd from offset to size
 int async_reader_init(struct async_reader_t *t, int fd, __uint64_t offset, __uint64_t size) {
-
+    if (size <= 0) return -1;
     assert((offset & (t->blk_size -1)) == 0); //offset is multiple of block size
     //submit read requests
 
@@ -131,13 +157,12 @@ static void accept_cqe(struct async_reader_t * t, const struct io_uring_cqe * cq
     //process bytes
     //user_date is file_offset in to file
     const __u64 data_offset = cqe->user_data;
-    const __u64 size = cqe->res;
     assert(bid > 0 && bid <= NR_BUFF); // bid start from 1
-    assert(size > 0 && size <= t->blk_size);
+    assert(cqe->res > 0 && ((__u32)cqe->res) <= t->blk_size);
     assert(data_offset >= t->next_offset);
     assert(data_offset < t->submitted_offset);
     //size < BLK_SIZE -> last block
-    assert(size == t->blk_size || data_offset + size == t->length);
+    assert((__u32)cqe->res == t->blk_size || data_offset + cqe->res == t->length);
     const __u64 blk_nr = data_offset / t->blk_size;
     const __u16 idx = blk_nr & (NR_BUFF -1);
     assert(idx < NR_BUFF);
@@ -197,6 +222,9 @@ __u64 async_reader_advance_read(struct async_reader_t *r, const __uint64_t size)
     // O_DIRECT reads need to be issues at multiple blk_size
     if (nbytes > 0 && prep_read_blk(&r->ring, r->fd, blk_size, r->submitted_offset)) {
         const int result = io_uring_submit(&r->ring);
+        if (result != 1) {
+            return 0; //err
+        }
         assert(result == 1);
         assert(r->submitted_offset + nbytes <= r->length);
         //cannot have more than NR_BUFF  buffer inflight
