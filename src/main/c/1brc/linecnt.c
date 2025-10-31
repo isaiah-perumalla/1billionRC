@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
         lines += count_new_lines(data, bytes_read);
 
         processed_bytes += bytes_read;
-        async_reader_advance_read(reader, bytes_read);
+        async_reader_advance_read(reader);
 
     }
     printf("lines %ld\n", lines);

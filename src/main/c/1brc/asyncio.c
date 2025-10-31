@@ -204,14 +204,18 @@ const char* async_reader_next_ready(struct async_reader_t *reader, __uint64_t* s
 }
 
 
-__u64 async_reader_advance_read(struct async_reader_t *r, const __uint64_t size) {
-    assert(r->next_offset + size <= r->submitted_offset);
-    assert(r->next_offset + size <= r->length);
+__u64 async_reader_advance_read(struct async_reader_t *r) {
     const __u32 blk_size = r->blk_size;
     const __u64 blk_nr = r->next_offset / blk_size;
     const __u16 idx = blk_nr & (NR_BUFF-1);
     r->ready_buffers[idx] = 0; //mark as empty
-    r->next_offset += size;
+    if (blk_size + r->next_offset <= r->length) {
+        r->next_offset += blk_size;
+    }
+    else {
+        assert(r->length == r->submitted_offset);
+        r->next_offset = r->length;
+    }
     r->ready_count -= 1;//advance both buffer ring and cqe ring
     io_uring_buf_ring_advance(r->buf_ring_ptr, 1);// release buffer back to kernel
 

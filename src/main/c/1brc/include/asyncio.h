@@ -39,11 +39,11 @@ int async_reader_poll(struct async_reader_t *reader);
 const char* async_reader_next_ready(struct async_reader_t *reader, __uint64_t* size);
 
 /**
- * Notify reader number of bytes consumed , must be multiple of blk_size,
+ * Notify reader blk is consumed,
  * @param r
  * @param size
  * @return
  */
-__u64 async_reader_advance_read(struct async_reader_t *r, const __uint64_t size);
+__u64 async_reader_advance_read(struct async_reader_t *r);
 
 #endif

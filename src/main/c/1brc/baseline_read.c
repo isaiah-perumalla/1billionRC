@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
         }
 
         processed_bytes += bytes_read;
-        async_reader_advance_read(reader, bytes_read);
+        async_reader_advance_read(reader);
 
     }
     printf("total=%ld\n",total);

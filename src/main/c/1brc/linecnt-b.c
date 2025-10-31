@@ -110,7 +110,7 @@ int main(int argc, char *argv[]) {
         lines += count_new_lines(data, bytes_read);
 
         processed_bytes += bytes_read;
-        const __u64 res = async_reader_advance_read(reader, bytes_read);
+        const __u64 res = async_reader_advance_read(reader);
         if (res == 0) {
             fprintf(stderr, "async_reader_advance_read %lld", res);
             exit(1);
