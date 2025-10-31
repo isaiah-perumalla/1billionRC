@@ -1,5 +1,5 @@
 CC=gcc
-CCC=clang
+CLANG=clang
 LIBURING_BUILD=../../../../local-build
 DEBUG_FLAGS=-g -fno-omit-frame-pointer
 RELEASE_FLAGS=-O3 -DNDEBUG
@@ -24,7 +24,7 @@ $(BIN)/%_gcc: $(SRC)/%.c $(BIN)/asyncio_gcc.o
 	$(CC) $<   -o $@ $(BIN)/asyncio_gcc.o $(CFLAGS) $(RELEASE_FLAGS) $(LIBS)
 
 $(BIN)/%_clang: $(SRC)/%.c $(BIN)/asyncio_clang.o
-	$(CC) $<   -o $@ $(BIN)/asyncio_clang.o $(CFLAGS) $(RELEASE_FLAGS) $(LIBS)
+	$(CLANG) $<   -o $@ $(BIN)/asyncio_clang.o $(CFLAGS) $(RELEASE_FLAGS) $(LIBS)
 
 
 $(BIN)/asyncio_debug_gcc.o: $(BIN)
@@ -34,7 +34,7 @@ $(BIN)/asyncio_gcc.o: $(BIN)
 	$(CC)  -c $(CFLAGS) $(RELEASE_FLAGS) asyncio.c -o $@
 
 $(BIN)/asyncio_clang.o: $(BIN)
-	$(CC)  -c $(CFLAGS) $(RELEASE_FLAGS) asyncio.c -o $@
+	$(CLANG)  -c $(CFLAGS) $(RELEASE_FLAGS) asyncio.c -o $@
 
 
 

@@ -24,6 +24,7 @@ sudo hdparm -tT --direct /dev/nvme0n1p5
 
 ```
 - check cpu frequency `cpupower frequency-info`
+- set min freq `sudo cpupower frequency-set -d 2.75`
 
 
 ```shell
